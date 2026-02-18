@@ -1,22 +1,23 @@
+# src/employee.py
+from typing import List, Optional
 from src.feature import Feature, FeatureStage
 
 
 class Employee:
+    day_work_hours = 7  # может пригодиться для моделирования встреч
+    effective_stages: List[FeatureStage] = []
 
-    day_work_hours = 7
-    effective_stages: list[FeatureStage]
-
-    def __init__(self, name: str):
+    def __init__(self, name: str, productivity: float = 1.0):
         self.name = name
+        self.productivity = productivity  # сколько единиц работы делает за день
 
-    def work(self, feature: 'Feature') -> bool | None:
-
-        print(f'{self.name} doing {feature.current_stage.name} of `{feature.name}`')
-        feature.capacity_mapping[feature.current_stage] -= 1
-
+    def work_on_feature(self, feature: Feature) -> None:
+        """Работать над указанной фичей."""
+        feature.work(self)
+        print(f"{self.name} doing {feature.current_stage.name} of `{feature.name}`")
 
     def idle(self) -> None:
-        print(f'{self.name} idle')
+        print(f"{self.name} idle")
 
 
 class Developer(Employee):
