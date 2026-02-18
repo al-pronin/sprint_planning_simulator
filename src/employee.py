@@ -10,6 +10,7 @@ class Employee:
         self.name = name
 
     def work(self, feature: 'Feature') -> bool | None:
+
         print(f'{self.name} doing {feature.current_stage.name} of `{feature.name}`')
         feature.capacity_mapping[feature.current_stage] -= 1
 

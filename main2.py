@@ -17,7 +17,7 @@ roman = QA(name ='Roman')
 bepaid_integration = Feature(
     name = 'BePaid Integration',
     capacity_mapping = {
-        FeatureStage.ANALYTICS: 3,
+        FeatureStage.ANALYTICS: 5,
         FeatureStage.DEVELOPMENT: 3,
         FeatureStage.TESTING: 3,
     },
@@ -27,7 +27,7 @@ bepaid_integration = Feature(
 bank131_integration = Feature(
     name = 'Bank 131 Integration',
     capacity_mapping = {
-        FeatureStage.ANALYTICS: 3,
+        # FeatureStage.ANALYTICS: 3,
         FeatureStage.DEVELOPMENT: 3,
         FeatureStage.TESTING: 3,
     },
@@ -54,29 +54,29 @@ def calc_employee_day(employee: 'Employee') -> None:
 
                 if feature.capacity_mapping[feature.current_stage] == 0:
                     feature.capacity_mapping.pop(feature.current_stage)
-                    print(f'Finished `{feature.name}` {feature.current_stage.name}')
+                    print(f'{employee.name} finished `{feature.name}` {feature.current_stage.name}')
 
                     remain_stages = list(feature.capacity_mapping.keys())
                     if len(remain_stages) == 0:
                         print(f'Feature `{feature.name}` is done!')
                         FEATURES.remove(feature)
-
-                    feature.current_stage = list(feature.capacity_mapping.keys())[0]
+                    else:
+                        feature.current_stage = list(feature.capacity_mapping.keys())[0]
                 return
 
 
             # else:
             #     print(f'{employee.name} cant\'t work on `{feature.name}`')
-            # employee.idle()
+    employee.idle()
 
 
 
 if __name__ == '__main__':
     for day_number in range(1, 15):
         print(f'Day {day_number}')
-        if not FEATURES:
-            print('All done!')
-            break
         for employee in EMPLOYEES:
             calc_employee_day(employee)
+        if not FEATURES:
+            print('All done!\n------------------')
+            break
         print('------------------')
