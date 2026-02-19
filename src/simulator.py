@@ -1,62 +1,65 @@
+from __future__ import annotations
 from typing import List
 from src.employee import Employee
 from src.feature import Feature
+from src.timebox import Tick
+from src.strategy import AssignmentStrategy
 
 
 class SprintSimulator:
-    def __init__(self, employees: List[Employee], features: List[Feature]):
+    """
+    Core simulation engine 🧠
+    Tick-based (half-day granularity).
+    """
+
+    SLOTS_PER_DAY = 2
+
+    def __init__(
+        self,
+        employees: List[Employee],
+        features: List[Feature],
+        assignment_strategy: AssignmentStrategy,
+    ) -> None:
         self.employees = employees
         self.features = features
-        self.day = 0
+        self.assignment_strategy = assignment_strategy
 
     def run(self, max_days: int) -> None:
-        """Запустить симуляцию на указанное максимальное количество дней."""
+        print("🚀 Sprint simulation started\n")
+
         for day in range(1, max_days + 1):
-            self.day = day
-            print(f"Day {day}")
-            self._process_day()
-            if not self.features:
-                print("All features done!")
-                break
-            print("------------------")
-        else:
-            print("Max days reached, simulation stopped.")
+            for slot in range(self.SLOTS_PER_DAY):
+                tick = Tick(day=day, slot=slot)
+                print(f"\n🕒 {tick.label}")
+                self._process_tick()
 
-    def _process_day(self) -> None:
-        # Фаза 1: каждый сотрудник выбирает и выполняет работу (только одну фичу)
+                if not self.features:
+                    print("\n🏁 All features completed early!")
+                    return
+
+        print("\n⏹ Max days reached. Simulation stopped.")
+
+    def _process_tick(self) -> None:
         for employee in self.employees:
-            self._assign_work(employee)
+            employee.reset_tick()
 
-        # Фаза 2: обработка завершённых стадий и переходы
-        self._complete_stages()
+        for employee in self.employees:
+            feature = self.assignment_strategy.choose_feature(
+                employee, self.features
+            )
+            if feature:
+                employee.work(feature)
+            else:
+                employee.idle()
 
-        # Подготовка к следующему дню: сброс флага worked_today у всех фич
+        self._advance_features()
+
+    def _advance_features(self) -> None:
+        completed: List[Feature] = []
+
         for feature in self.features:
-            feature.reset_worked_today()
+            if feature.try_advance():
+                completed.append(feature)
 
-    def _assign_work(self, employee: Employee) -> None:
-        """Выбрать для сотрудника подходящую фичу (в порядке приоритета) и назначить работу."""
-        for feature in self.features:
-            if feature.can_work(employee):
-                employee.work_on_feature(feature)
-                return
-        # Если ничего не подошло
-        employee.idle()
-
-    def _complete_stages(self) -> None:
-        """Проверить завершённые стадии и выполнить переходы (или удалить готовые фичи)."""
-        features_to_remove = []
-        for feature in self.features:
-            if feature.is_current_stage_finished():
-                print(f"{feature.name}: stage {feature.current_stage.name} finished.")
-                if not feature.advance_to_next_stage():
-                    # Нет следующей стадии — фича полностью готова
-                    print(f"Feature `{feature.name}` is done!")
-                    features_to_remove.append(feature)
-                else:
-                    print(f"{feature.name} moved to stage {feature.current_stage.name}.")
-                # Важно: НЕ сбрасываем worked_today здесь, чтобы сегодня никто не начал новую стадию
-
-        # Удаляем готовые фичи
-        for feature in features_to_remove:
+        for feature in completed:
             self.features.remove(feature)

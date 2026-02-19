@@ -1,93 +1,83 @@
-# src/feature.py
-from decimal import Decimal, ROUND_HALF_UP
+from __future__ import annotations
 from enum import Enum
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from src.employee import Employee
 
 
 class FeatureStage(Enum):
-    NEW = 'new'
-    ANALYTICS = 'analytics'
-    DEVELOPMENT = 'development'
-    TESTING = 'testing'
+    ANALYTICS = "analytics"
+    DEVELOPMENT = "development"
+    TESTING = "testing"
 
 
 class Feature:
-    # Порядок прохождения стадий (можно менять в наследниках)
-    stage_order = [FeatureStage.ANALYTICS, FeatureStage.DEVELOPMENT, FeatureStage.TESTING]
+    """
+    Represents a feature moving through delivery stages 📦
+    """
+
+    STAGE_ORDER: List[FeatureStage] = [
+        FeatureStage.ANALYTICS,
+        FeatureStage.DEVELOPMENT,
+        FeatureStage.TESTING,
+    ]
 
     def __init__(
         self,
         name: str,
-        capacity_mapping: Dict[FeatureStage, float],
-        current_stage: FeatureStage
-    ):
+        stage_capacities: Dict[FeatureStage, float],
+        initial_stage: FeatureStage,
+    ) -> None:
         self.name = name
-        # Исходное отображение (для справки)
-        self.capacity_mapping = capacity_mapping.copy()
-        # Оставшаяся трудоёмкость по каждой стадии (может быть дробной)
-        self.remaining = capacity_mapping.copy()
-        self.current_stage = current_stage
-        self.assignees: List['Employee'] = []
-        self.worked_today = False  # флаг: работали ли сегодня над этой фичей
+        self._remaining: Dict[FeatureStage, float] = stage_capacities.copy()
+        self.current_stage = initial_stage
+        self.assignees: List["Employee"] = []
 
-    def assign(self, employee: 'Employee') -> None:
-        """Назначить сотрудника на фичу."""
+    def assign(self, employee: "Employee") -> None:
         if employee not in self.assignees:
             self.assignees.append(employee)
 
-    def can_work(self, employee: 'Employee') -> bool:
-        """Может ли сотрудник работать над фичей сегодня."""
-        if self.worked_today:
-            return False
+    def can_be_worked_by(self, employee: "Employee") -> bool:
         if employee not in self.assignees:
             return False
-        if self.current_stage not in employee.effective_stages:
+        if not employee.can_work_stage(self.current_stage):
             return False
-        # Дополнительно можно проверить, не заблокирована ли фича (для будущих расширений)
+        if self.is_done:
+            return False
         return True
 
-    def work(self, employee: 'Employee') -> None:
-        """Выполнить единицу работы над текущей стадией."""
-        if self.remaining.get(self.current_stage, 0) <= 0:
-            raise RuntimeError(f"Stage {self.current_stage} of feature {self.name} is already finished.")
-        # self.remaining[self.current_stage] -= employee.productivity
-        productivity = Decimal(str(employee.productivity))
-        remaining = Decimal(str(self.remaining[self.current_stage]))
-        result = (remaining - productivity).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        if result < 0:
-            result = 0
-        self.remaining[self.current_stage] = float(result)
-        print(f'{self.name} {self.current_stage.name} remain {self.remaining.get(self.current_stage)}')
-        self.worked_today = True
+    def work(self, effort: float) -> None:
+        remaining = self._remaining[self.current_stage]
+        remaining -= effort
+        self._remaining[self.current_stage] = max(0.0, round(remaining, 2))
 
-    def is_current_stage_finished(self) -> bool:
-        """Завершена ли текущая стадия (остаток <= 0)."""
-        return self.remaining.get(self.current_stage, 0) <= 0
+        print(
+            f"   🔧 {self.name} {self.current_stage.name} remaining: "
+            f"{self._remaining[self.current_stage]}"
+        )
 
-    def advance_to_next_stage(self) -> bool:
+    def try_advance(self) -> bool:
         """
-        Перейти на следующую стадию согласно порядку.
-        Возвращает True, если переход выполнен, и False, если стадий больше нет (фича готова).
+        Move to next stage if current finished.
+        Returns True if feature completed entirely.
         """
-        try:
-            current_idx = self.stage_order.index(self.current_stage)
-        except ValueError:
-            # Текущая стадия не в списке порядка (например, NEW) — считаем фичу готовой
+        if self._remaining[self.current_stage] > 0:
             return False
 
-        for next_stage in self.stage_order[current_idx+1:]:
-            if next_stage in self.remaining:
+        print(f"✅ {self.name} finished {self.current_stage.name}")
+
+        current_index = self.STAGE_ORDER.index(self.current_stage)
+        for next_stage in self.STAGE_ORDER[current_index + 1:]:
+            if next_stage in self._remaining:
                 self.current_stage = next_stage
-                return True
-        return False
+                print(f"➡️ {self.name} moved to {self.current_stage.name}")
+                return False
 
-    def reset_worked_today(self):
-        """Сбросить флаг worked_today (вызывается в начале нового дня)."""
-        self.worked_today = False
+        print(f"🎉 Feature {self.name} fully completed!")
+        return True
 
-    def is_completely_done(self) -> bool:
-        """Проверить, полностью ли завершена фича."""
-        return all(rem <= 0 for rem in self.remaining.values())
+    @property
+    def is_done(self) -> bool:
+        return all(value <= 0 for value in self._remaining.values())
