@@ -13,8 +13,8 @@ class Employee:
 
     def work_on_feature(self, feature: Feature) -> None:
         """Работать над указанной фичей."""
-        feature.work(self)
         print(f"{self.name} doing {feature.current_stage.name} of `{feature.name}`")
+        feature.work(self)
 
     def idle(self) -> None:
         print(f"{self.name} idle")

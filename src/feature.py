@@ -1,4 +1,5 @@
 # src/feature.py
+from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from typing import Dict, List, Optional, TYPE_CHECKING
 
@@ -52,7 +53,14 @@ class Feature:
         """Выполнить единицу работы над текущей стадией."""
         if self.remaining.get(self.current_stage, 0) <= 0:
             raise RuntimeError(f"Stage {self.current_stage} of feature {self.name} is already finished.")
-        self.remaining[self.current_stage] -= employee.productivity
+        # self.remaining[self.current_stage] -= employee.productivity
+        productivity = Decimal(str(employee.productivity))
+        remaining = Decimal(str(self.remaining[self.current_stage]))
+        result = (remaining - productivity).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if result < 0:
+            result = 0
+        self.remaining[self.current_stage] = float(result)
+        print(f'{self.name} {self.current_stage.name} remain {self.remaining.get(self.current_stage)}')
         self.worked_today = True
 
     def is_current_stage_finished(self) -> bool:

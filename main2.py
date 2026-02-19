@@ -7,8 +7,8 @@ from src.simulator import SprintSimulator
 if __name__ == '__main__':
     # Команда
     igor = Developer(name='Igor', productivity=1.2)
-    daniil = SystemAnalyst(name='Daniil', productivity=0.8)  # чуть быстрее
-    roman = QA(name='Roman', productivity=1.0)               # чуть медленнее
+    daniil = SystemAnalyst(name='Daniil', productivity=0.8)
+    roman = QA(name='Roman', productivity=1.0)
 
     # Фичи
     bepaid_integration = Feature(
