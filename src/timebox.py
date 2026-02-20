@@ -1,15 +1,24 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Tick:
     """
-    Represents a simulation time unit (half-day) ⏳
+    Represents a simulation time unit (1 hour) ⏳
+
+    Attributes:
+        day: Simulation day number (starting from 1).
+        hour: Hour of the working day (1..HOURS_PER_DAY).
     """
+
     day: int
-    slot: int  # 0 = morning, 1 = afternoon
+    hour: int  # 1..8
+
+    HOURS_PER_DAY: int = 8
 
     @property
     def label(self) -> str:
-        part = "🌅 Morning" if self.slot == 0 else "🌇 Afternoon"
-        return f"Day {self.day} — {part}"
+        """
+        Human-readable label for logging.
+        """
+        return f"Day {self.day} — 🕐 Hour {self.hour}"
