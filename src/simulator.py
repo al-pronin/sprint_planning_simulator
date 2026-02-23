@@ -1,23 +1,17 @@
 from __future__ import annotations
+
 from typing import List
+
 from src.employee import Employee
-from src.feature import Feature
+from src.feature import Feature, FeatureStage
 from src.timebox import Tick
 from src.strategy import AssignmentStrategy
+from src.review_engine import ReviewEngine
 
 
 class SprintSimulator:
     """
     Core simulation engine 🧠
-
-    Time granularity:
-        - 1 tick = 1 working hour
-        - 8 hours per working day
-
-    Responsibilities:
-        - Iterate over time
-        - Assign work via strategy
-        - Advance feature lifecycle
     """
 
     HOURS_PER_DAY: int = 8
@@ -27,28 +21,18 @@ class SprintSimulator:
         employees: List[Employee],
         features: List[Feature],
         assignment_strategy: AssignmentStrategy,
+        review_engine: ReviewEngine,
     ) -> None:
-        """
-        Args:
-            employees: Team members participating in the sprint.
-            features: Active features in progress.
-            assignment_strategy: Strategy used to assign work.
-        """
         self.employees = employees
         self.features = features
         self.assignment_strategy = assignment_strategy
+        self.review_engine = review_engine
 
     # ------------------------------------------------------------------ #
     # Public API
     # ------------------------------------------------------------------ #
 
     def run(self, max_days: int) -> None:
-        """
-        Runs the sprint simulation.
-
-        Args:
-            max_days: Maximum number of working days to simulate.
-        """
         print("🚀 Sprint simulation started\n")
 
         for day in range(1, max_days + 1):
@@ -68,14 +52,9 @@ class SprintSimulator:
     # ------------------------------------------------------------------ #
 
     def _process_tick(self) -> None:
-        """
-        Processes a single hour of work.
-        """
-        # Reset state
         for employee in self.employees:
             employee.reset_tick()
 
-        # Assign and perform work
         for employee in self.employees:
             feature = self.assignment_strategy.choose_feature(
                 employee,
@@ -87,16 +66,19 @@ class SprintSimulator:
             else:
                 employee.idle()
 
-        # Try advancing features after work is done
         self._advance_features()
 
     def _advance_features(self) -> None:
-        """
-        Advances features to next stages if their current stage is complete.
-        """
         completed: List[Feature] = []
 
         for feature in self.features:
+            # If REVIEW just finished — delegate decision
+            if (
+                feature.current_stage == FeatureStage.REVIEW
+                and feature._remaining[FeatureStage.REVIEW] <= 0
+            ):
+                self.review_engine.process_review(feature)
+
             if feature.try_advance():
                 completed.append(feature)
 

@@ -2,22 +2,23 @@ from src.employee import Developer, SystemAnalyst, QA
 from src.feature import Feature, FeatureStage
 from src.simulator import SprintSimulator
 from src.strategy import SimpleAssignmentStrategy
+from src.review_engine import ReviewEngine
 
 
 def main() -> None:
     """Entry point of the sprint simulation 🚀"""
 
-    # 👥 Team
     igor = Developer(name="Igor", productivity_per_day=1.2)
+    andrey = Developer(name="Andrey", productivity_per_day=1.0)
     daniil = SystemAnalyst(name="Daniil", productivity_per_day=0.8)
     roman = QA(name="Roman", productivity_per_day=1.0)
 
-    # 📦 Features
     bepaid_integration = Feature(
         name="BePaid Integration",
         stage_capacities={
             FeatureStage.ANALYTICS: 5,
             FeatureStage.DEVELOPMENT: 3,
+            FeatureStage.REVIEW: 2,
             FeatureStage.TESTING: 3,
         },
         initial_stage=FeatureStage.ANALYTICS,
@@ -43,15 +44,19 @@ def main() -> None:
 
     # 🎯 Assign people
     for feature in [bepaid_integration, bank131_integration, withdraw_try]:
-        feature.assign(igor)
         feature.assign(roman)
+        feature.assign(daniil)
 
-    bepaid_integration.assign(daniil)
+
+    bepaid_integration.assign(igor)
+    bank131_integration.assign(andrey)
+    withdraw_try.assign(igor)
 
     simulator = SprintSimulator(
-        employees=[igor, daniil, roman],
-        features=[bepaid_integration, bank131_integration, withdraw_try],
+        employees=[igor, daniil, roman, andrey],
+        features=[bepaid_integration],
         assignment_strategy=SimpleAssignmentStrategy(),
+        review_engine=ReviewEngine(fail_probability=0.3),
     )
 
     simulator.run(max_days=15)
