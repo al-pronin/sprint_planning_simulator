@@ -9,6 +9,7 @@ def main() -> None:
 
     # 👥 Team
     igor = Developer(name="Igor", productivity_per_day=1.2)
+    andrey = Developer(name="Andrey", productivity_per_day=1.2)
     daniil = SystemAnalyst(name="Daniil", productivity_per_day=0.8)
     roman = QA(name="Roman", productivity_per_day=1.0)
 
@@ -43,13 +44,16 @@ def main() -> None:
 
     # 🎯 Assign people
     for feature in [bepaid_integration, bank131_integration, withdraw_try]:
-        feature.assign(igor)
         feature.assign(roman)
 
     bepaid_integration.assign(daniil)
+    bepaid_integration.assign(igor)
+    withdraw_try.assign(igor)
+
+    bank131_integration.assign(andrey)
 
     simulator = SprintSimulator(
-        employees=[igor, daniil, roman],
+        employees=[igor, daniil, roman, andrey],
         features=[bepaid_integration, bank131_integration, withdraw_try],
         assignment_strategy=SimpleAssignmentStrategy(),
     )

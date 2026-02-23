@@ -4,6 +4,8 @@ from src.employee import Employee
 from src.feature import Feature
 from src.timebox import Tick
 from src.strategy import AssignmentStrategy
+from src.config import HOURS_PER_DAY
+from src.history import SprintHistory
 
 
 class SprintSimulator:
@@ -12,15 +14,14 @@ class SprintSimulator:
 
     Time granularity:
         - 1 tick = 1 working hour
-        - 8 hours per working day
+        - 8 hours per working day (default, see config)
 
     Responsibilities:
         - Iterate over time
         - Assign work via strategy
         - Advance feature lifecycle
+        - Record simulation history
     """
-
-    HOURS_PER_DAY: int = 8
 
     def __init__(
         self,
@@ -37,6 +38,7 @@ class SprintSimulator:
         self.employees = employees
         self.features = features
         self.assignment_strategy = assignment_strategy
+        self.history = SprintHistory()
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -52,10 +54,10 @@ class SprintSimulator:
         print("🚀 Sprint simulation started\n")
 
         for day in range(1, max_days + 1):
-            for hour in range(1, self.HOURS_PER_DAY + 1):
+            for hour in range(1, HOURS_PER_DAY + 1):
                 tick = Tick(day=day, hour=hour)
                 print(f"\n🕒 {tick.label}")
-                self._process_tick()
+                self._process_tick(tick)
 
                 if not self.features:
                     print("\n🏁 All features completed early!")
@@ -67,7 +69,7 @@ class SprintSimulator:
     # Internal mechanics
     # ------------------------------------------------------------------ #
 
-    def _process_tick(self) -> None:
+    def _process_tick(self, tick: Tick) -> None:
         """
         Processes a single hour of work.
         """
@@ -86,6 +88,9 @@ class SprintSimulator:
                 employee.work(feature)
             else:
                 employee.idle()
+
+        # Record history for this tick
+        self.history.record(tick, self.features, self.employees)
 
         # Try advancing features after work is done
         self._advance_features()

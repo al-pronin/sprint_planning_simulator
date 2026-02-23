@@ -48,6 +48,12 @@ class Feature:
             return False
         return True
 
+    def get_remaining_efforts(self) -> Dict[FeatureStage, float]:
+        """
+        Returns a copy of the remaining efforts for each stage.
+        """
+        return self._remaining.copy()
+
     def work(self, effort: float) -> None:
         remaining = self._remaining[self.current_stage]
         remaining -= effort

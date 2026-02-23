@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
 
+from src.config import HOURS_PER_DAY
+
+
 @dataclass(frozen=True, slots=True)
 class Tick:
     """
@@ -12,9 +15,7 @@ class Tick:
     """
 
     day: int
-    hour: int  # 1..8
-
-    HOURS_PER_DAY: int = 8
+    hour: int  # 1..HOURS_PER_DAY
 
     @property
     def label(self) -> str:

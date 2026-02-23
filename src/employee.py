@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import ClassVar, List
+from typing import ClassVar, List, Optional
 from src.feature import Feature, FeatureStage
+from src.config import HOURS_PER_DAY
 
 
 class Employee:
@@ -15,8 +16,6 @@ class Employee:
 
     effective_stages: ClassVar[List[FeatureStage]] = []
 
-    HOURS_PER_DAY: ClassVar[int] = 8
-
     def __init__(
         self,
         name: str,
@@ -30,6 +29,7 @@ class Employee:
         self.name = name
         self.productivity_per_day = productivity_per_day
         self._worked_this_tick = False
+        self.current_task_name: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Productivity
@@ -43,7 +43,7 @@ class Employee:
         Returns:
             Effort units produced in one hour.
         """
-        return self.productivity_per_day / self.HOURS_PER_DAY
+        return self.productivity_per_day / HOURS_PER_DAY
 
     # ------------------------------------------------------------------ #
     # Capability
@@ -64,6 +64,7 @@ class Employee:
         Resets per-tick state.
         """
         self._worked_this_tick = False
+        self.current_task_name = None
 
     @property
     def has_worked(self) -> bool:
@@ -90,12 +91,14 @@ class Employee:
 
         feature.work(self.productivity_per_hour)
         self._worked_this_tick = True
+        self.current_task_name = feature.name
 
     def idle(self) -> None:
         """
         Called when employee has no work for this hour.
         """
         print(f"😴 {self.name} is idle this hour")
+        self.current_task_name = "Idle"
 
 
 # ---------------------------------------------------------------------- #
