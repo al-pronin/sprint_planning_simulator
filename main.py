@@ -2,6 +2,7 @@ from src.employee import Developer, SystemAnalyst, QA
 from src.feature import Feature, FeatureStage
 from src.simulator import SprintSimulator
 from src.strategy import SimpleAssignmentStrategy
+from src.reporter import HTMLReporter  # Import the reporter
 
 
 def main() -> None:
@@ -59,6 +60,10 @@ def main() -> None:
     )
 
     simulator.run(max_days=15)
+
+    # 🖨️ Generate Report
+    reporter = HTMLReporter(simulator.history)
+    reporter.save_report("sprint_report.html")
 
 
 if __name__ == "__main__":

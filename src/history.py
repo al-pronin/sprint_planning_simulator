@@ -17,6 +17,7 @@ class FeatureSnapshot:
     name: str
     current_stage: FeatureStage
     remaining_efforts: Dict[FeatureStage, float]
+    total_capacity: float  # Added for progress calculation
     is_done: bool
 
     @classmethod
@@ -28,6 +29,7 @@ class FeatureSnapshot:
             name=feature.name,
             current_stage=feature.current_stage,
             remaining_efforts=feature.get_remaining_efforts(),
+            total_capacity=feature.total_capacity,
             is_done=feature.is_done,
         )
 
@@ -46,7 +48,6 @@ class EmployeeSnapshot:
         """
         Creates a snapshot from an Employee instance.
         """
-        # Note: We'll need to update Employee to track what it's working on
         return cls(
             name=employee.name,
             has_worked=employee.has_worked,

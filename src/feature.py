@@ -32,8 +32,15 @@ class Feature:
     ) -> None:
         self.name = name
         self._remaining: Dict[FeatureStage, float] = stage_capacities.copy()
+        # Store initial capacities for progress calculation
+        self._initial_capacities: Dict[FeatureStage, float] = stage_capacities.copy()
         self.current_stage = initial_stage
         self.assignees: List["Employee"] = []
+
+    @property
+    def total_capacity(self) -> float:
+        """Returns total estimated effort for the feature."""
+        return sum(self._initial_capacities.values())
 
     def assign(self, employee: "Employee") -> None:
         if employee not in self.assignees:
