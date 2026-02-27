@@ -1,20 +1,46 @@
+"""
+Reporter module for the sprint simulator.
+
+This module provides HTML report generation from simulation history,
+creating interactive visualizations of sprint progress.
+"""
+
 import json
-from typing import List
-from src.history import SprintHistory, TickSnapshot, FeatureSnapshot, EmployeeSnapshot
+
 from src.feature import FeatureStage
+from src.history import SprintHistory
 
 
 class HTMLReporter:
     """
-    Generates a standalone HTML report from simulation history. 📝
+    Generates a standalone HTML report from simulation history.
+
+    The report includes:
+    - Interactive timeline slider
+    - Feature progress table
+    - Employee activity table
+    - Code review tracking
+
+    Example:
+        >>> reporter = HTMLReporter(simulator.history)
+        >>> reporter.save_report("sprint_report.html")
     """
 
     def __init__(self, history: SprintHistory) -> None:
+        """
+        Initialize the reporter.
+
+        Args:
+            history: SprintHistory instance with recorded simulation data.
+        """
         self.history = history
 
     def save_report(self, filename: str = "sprint_report.html") -> None:
         """
-        Generates and saves the HTML file.
+        Generate and save the HTML report.
+
+        Args:
+            filename: Output file path for the HTML report.
         """
         print(f"🖨️ Generating HTML report: {filename}...")
 
@@ -26,7 +52,7 @@ class HTMLReporter:
         html_content = self._get_html_template(
             slider_data_json=json.dumps(slider_data),
             feature_table=feature_table_html,
-            employee_table=employee_table_html
+            employee_table=employee_table_html,
         )
 
         with open(filename, "w", encoding="utf-8") as f:
@@ -34,16 +60,20 @@ class HTMLReporter:
 
         print(f"✅ Report saved successfully!")
 
-    def _prepare_slider_data(self) -> List[dict]:
+    def _prepare_slider_data(self) -> list[dict]:
         """
-        Converts history into a JSON-serializable structure for the JS slider.
+        Convert history into JSON-serializable structure for JS slider.
+
+        Returns:
+            List of tick data dictionaries for JavaScript consumption.
         """
         data = []
+
         for snap in self.history.history:
-            tick_data = {
+            tick_data: dict = {
                 "tick_label": snap.tick.label,
                 "features": [],
-                "employees": []
+                "employees": [],
             }
 
             # Features processing
@@ -52,14 +82,13 @@ class HTMLReporter:
                 total = f.total_capacity if f.total_capacity > 0 else 1.0
                 progress = round(100 * (1 - remaining_sum / total), 1)
 
-                # Determine status text
-                status = "Done" if f.is_done else f.current_stage.name.capitalize()
+                status = "Done" if f.is_done else f.current_stage.display_name()
 
                 tick_data["features"].append({
                     "name": f.name,
-                    "stage": f.current_stage.name.capitalize(),
+                    "stage": f.current_stage.display_name(),
                     "progress": progress,
-                    "status": status
+                    "status": status,
                 })
 
             # Employees processing
@@ -68,50 +97,59 @@ class HTMLReporter:
                 tick_data["employees"].append({
                     "name": e.name,
                     "task": task,
-                    "status": "Working" if e.has_worked else "Idle"
+                    "status": "Working" if e.has_worked else "Idle",
                 })
 
             data.append(tick_data)
+
         return data
 
     def _generate_feature_table(self) -> str:
         """
-        Generates HTML for the Feature x Time table.
+        Generate HTML for the Feature x Time table.
+
+        Returns:
+            HTML string for the feature progress table.
         """
         if not self.history.history:
             return "<p>No data</p>"
 
-        # Headers
         headers = ["Time"] + [f.name for f in self.history.history[0].features]
-
         rows = []
+
         for snap in self.history.history:
             cells = [f"<td>{snap.tick.label}</td>"]
+
             for f in snap.features:
-                # If done, keep showing "Done"
                 if f.is_done:
                     content = "✅ Done"
                 else:
-                    content = f"{f.current_stage.name.capitalize()} ({sum(f.remaining_efforts.values()):.1f}h left)"
+                    stage_name = f.current_stage.display_name()
+                    remaining = sum(f.remaining_efforts.values())
+                    content = f"{stage_name} ({remaining:.1f}h left)"
 
                 cells.append(f"<td>{content}</td>")
+
             rows.append("<tr>" + "".join(cells) + "</tr>")
 
         return self._render_table_html("Feature Progress", headers, rows)
 
     def _generate_employee_table(self) -> str:
         """
-        Generates HTML for the Employee x Time table.
+        Generate HTML for the Employee x Time table.
+
+        Returns:
+            HTML string for the employee activity table.
         """
         if not self.history.history:
             return "<p>No data</p>"
 
-        # Headers
         headers = ["Time"] + [e.name for e in self.history.history[0].employees]
-
         rows = []
+
         for snap in self.history.history:
             cells = [f"<td>{snap.tick.label}</td>"]
+
             for e in snap.employees:
                 if e.has_worked:
                     content = f"🛠 {e.current_task}"
@@ -119,17 +157,33 @@ class HTMLReporter:
                 else:
                     content = "😴 Idle"
                     css_class = "status-idle"
+
                 cells.append(f'<td class="{css_class}">{content}</td>')
+
             rows.append("<tr>" + "".join(cells) + "</tr>")
 
         return self._render_table_html("Employee Activity", headers, rows)
 
-    def _render_table_html(self, title: str, headers: List[str], rows: List[str]) -> str:
+    def _render_table_html(
+        self,
+        title: str,
+        headers: list[str],
+        rows: list[str],
+    ) -> str:
         """
-        Helper to render a standard styled table.
+        Render a standard styled HTML table.
+
+        Args:
+            title: Table heading text.
+            headers: Column header names.
+            rows: HTML row strings.
+
+        Returns:
+            Complete HTML table string.
         """
         header_html = "".join([f"<th>{h}</th>" for h in headers])
         body_html = "\n".join(rows)
+
         return f"""
         <h3>{title}</h3>
         <div class="table-container">
@@ -140,10 +194,25 @@ class HTMLReporter:
         </div>
         """
 
-    def _get_html_template(self, slider_data_json: str, feature_table: str, employee_table: str) -> str:
+    def _get_html_template(
+        self,
+        slider_data_json: str,
+        feature_table: str,
+        employee_table: str,
+    ) -> str:
         """
-        Returns the full HTML string with embedded CSS & JS.
+        Generate the complete HTML document.
+
+        Args:
+            slider_data_json: JSON string of slider data.
+            feature_table: HTML for feature table.
+            employee_table: HTML for employee table.
+
+        Returns:
+            Complete HTML document string.
         """
+        max_tick = len(self.history.history) - 1 if self.history.history else 0
+
         return f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -159,7 +228,9 @@ class HTMLReporter:
             --border-color: #3e3e42;
             --accent-color: #4fc1ff;
             --success-color: #89d185;
+            --warning-color: #dcdcaa;
             --idle-color: #6e6e6e;
+            --review-color: #ce9178;
         }}
 
         body {{
@@ -223,6 +294,12 @@ class HTMLReporter:
             gap: 20px;
         }}
 
+        @media (max-width: 900px) {{
+            .dashboard {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
         .card {{
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -233,6 +310,7 @@ class HTMLReporter:
         .entity-list {{
             list-style: none;
             padding: 0;
+            margin: 0;
         }}
 
         .entity-list li {{
@@ -257,6 +335,20 @@ class HTMLReporter:
             background-color: var(--success-color);
             transition: width 0.1s linear;
         }}
+
+        /* Stage badges */
+        .stage-badge {{
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }}
+        .stage-analytics {{ background-color: #6a9955; }}
+        .stage-development {{ background-color: #569cd6; }}
+        .stage-code_review {{ background-color: #ce9178; }}
+        .stage-testing {{ background-color: #c586c0; }}
 
         /* Tables */
         .table-container {{
@@ -292,6 +384,7 @@ class HTMLReporter:
 
         .status-working {{ color: var(--success-color); font-weight: bold; }}
         .status-idle {{ color: var(--idle-color); font-style: italic; }}
+        .status-review {{ color: var(--review-color); }}
     </style>
 </head>
 <body>
@@ -309,7 +402,7 @@ class HTMLReporter:
     <div id="SliderTab" class="tab-content active">
         <div class="slider-controls">
             <span>Tick:</span>
-            <input type="range" min="0" max="{len(self.history.history) - 1}" value="0" id="timeSlider" oninput="updateView(this.value)">
+            <input type="range" min="0" max="{max_tick}" value="0" id="timeSlider" oninput="updateView(this.value)">
             <span id="tickLabel" style="font-weight:bold; min-width: 150px;">Day 1 - Hour 1</span>
         </div>
 
@@ -338,6 +431,17 @@ class HTMLReporter:
     <script>
         const historyData = {slider_data_json};
 
+        function getStageClass(stage) {{
+            const classes = {{
+                'Analytics': 'stage-analytics',
+                'Development': 'stage-development',
+                'Code Review': 'stage-code_review',
+                'Testing': 'stage-testing',
+                'Done': 'stage-done'
+            }};
+            return classes[stage] || '';
+        }}
+
         function updateView(index) {{
             const data = historyData[index];
 
@@ -358,7 +462,9 @@ class HTMLReporter:
                         <div class="progress-container">
                             <div class="progress-bar" style="width: ${{f.progress}}%"></div>
                         </div>
-                        <small>${{f.status}}</small>
+                        <small>
+                            <span class="stage-badge ${{getStageClass(f.stage)}}">${{f.stage}}</span>
+                        </small>
                     </div>
                 `;
                 fList.appendChild(li);
@@ -369,11 +475,22 @@ class HTMLReporter:
             eList.innerHTML = '';
             data.employees.forEach(e => {{
                 const li = document.createElement('li');
-                const icon = e.status === 'Working' ? '🛠' : '😴';
-                const color = e.status === 'Working' ? 'var(--success-color)' : 'var(--idle-color)';
+                let icon = '😴';
+                let color = 'var(--idle-color)';
+                let extraClass = '';
+
+                if (e.status === 'Working') {{
+                    icon = '🛠';
+                    color = 'var(--success-color)';
+                    // Check if doing code review
+                    if (e.task && e.task.includes && !e.task.includes('Idle')) {{
+                        extraClass = 'status-working';
+                    }}
+                }}
+
                 li.innerHTML = `
                     <span>${{icon}} <b>${{e.name}}</b></span>
-                    <span style="color: ${{color}}">${{e.task}}</span>
+                    <span style="color: ${{color}}" class="${{extraClass}}">${{e.task}}</span>
                 `;
                 eList.appendChild(li);
             }});
