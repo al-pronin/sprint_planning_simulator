@@ -237,3 +237,71 @@ class TestSimulatorDefensiveCopy:
 
         # Simulator should still have the feature
         assert len(simulator.features) == 1
+
+
+class TestSimulatorCompletedFeaturesInHistory:
+    """Tests for completed features appearing in history."""
+
+    def test_completed_features_shown_in_all_ticks(self) -> None:
+        """Completed features are shown in all subsequent tick snapshots."""
+        feature = Feature(
+            name="Quick Task",
+            stage_capacities={FeatureStage.DEVELOPMENT: 0.5},
+            initial_stage=FeatureStage.DEVELOPMENT,
+        )
+
+        dev1 = Developer(name="Dev1", productivity_per_day=16.0)
+        dev2 = Developer(name="Dev2")
+
+        feature.assign(dev1)
+
+        simulator = SprintSimulator(
+            employees=[dev1, dev2],
+            features=[feature],
+            assignment_strategy=SimpleAssignmentStrategy(),
+        )
+
+        simulator.run(max_days=5)
+
+        # Feature should be in ALL snapshots
+        for snapshot in simulator.history.history:
+            feature_names = [f.name for f in snapshot.features]
+            assert "Quick Task" in feature_names
+
+    def test_completed_feature_shows_as_done(self) -> None:
+        """Completed feature shows is_done=True in snapshots."""
+        feature = Feature(
+            name="Quick Task",
+            stage_capacities={FeatureStage.DEVELOPMENT: 0.5},
+            initial_stage=FeatureStage.DEVELOPMENT,
+        )
+
+        dev1 = Developer(name="Dev1", productivity_per_day=16.0)
+        dev2 = Developer(name="Dev2")
+
+        feature.assign(dev1)
+
+        simulator = SprintSimulator(
+            employees=[dev1, dev2],
+            features=[feature],
+            assignment_strategy=SimpleAssignmentStrategy(),
+        )
+
+        simulator.run(max_days=5)
+
+        # Find when feature completed
+        completion_tick = None
+        for i, snapshot in enumerate(simulator.history.history):
+            for f in snapshot.features:
+                if f.name == "Quick Task" and f.is_done:
+                    completion_tick = i
+                    break
+            if completion_tick is not None:
+                break
+
+        # After completion, feature should show is_done=True
+        if completion_tick is not None:
+            for snapshot in simulator.history.history[completion_tick:]:
+                for f in snapshot.features:
+                    if f.name == "Quick Task":
+                        assert f.is_done

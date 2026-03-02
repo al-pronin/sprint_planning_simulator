@@ -121,6 +121,7 @@ class SprintHistory:
     Collector for simulation snapshots over time.
 
     Maintains an ordered list of tick snapshots for analysis and reporting.
+    Tracks completed features to show them in reports even after removal.
 
     Example:
         >>> history = SprintHistory()
@@ -132,6 +133,7 @@ class SprintHistory:
     def __init__(self) -> None:
         """Initialize an empty history collector."""
         self._history: list[TickSnapshot] = []
+        self._completed_features: dict[str, FeatureSnapshot] = {}
 
     def record(
         self,
@@ -142,17 +144,38 @@ class SprintHistory:
         """
         Record the current state of the simulation.
 
-        Creates snapshots of all features and employees and appends
-        them to the history.
+        Creates snapshots of all features (including previously completed ones)
+        and employees and appends them to the history.
 
         Args:
             tick: Current simulation time point.
             features: List of active features to snapshot.
             employees: List of employees to snapshot.
         """
+        # Build feature list: active + completed
+        all_feature_snapshots: list[FeatureSnapshot] = []
+
+        # Add active features
+        for feature in features:
+            snapshot = FeatureSnapshot.from_feature(feature)
+            all_feature_snapshots.append(snapshot)
+
+            # Track if this feature just completed
+            if feature.is_done:
+                self._completed_features[feature.name] = snapshot
+
+        # Add previously completed features that are no longer active
+        active_names = {f.name for f in features}
+        for name, completed_snapshot in self._completed_features.items():
+            if name not in active_names:
+                all_feature_snapshots.append(completed_snapshot)
+
+        # Sort by name for consistent ordering
+        all_feature_snapshots.sort(key=lambda f: f.name)
+
         snapshot = TickSnapshot(
             tick=tick,
-            features=[FeatureSnapshot.from_feature(f) for f in features],
+            features=all_feature_snapshots,
             employees=[EmployeeSnapshot.from_employee(e) for e in employees],
         )
         self._history.append(snapshot)

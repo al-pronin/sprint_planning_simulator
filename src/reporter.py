@@ -114,6 +114,8 @@ class HTMLReporter:
         if not self.history.history:
             return "<p>No data</p>"
 
+        # Get all feature names from the first snapshot
+        # (history now includes completed features in all snapshots)
         headers = ["Time"] + [f.name for f in self.history.history[0].features]
         rows = []
 
@@ -482,7 +484,6 @@ class HTMLReporter:
                 if (e.status === 'Working') {{
                     icon = '🛠';
                     color = 'var(--success-color)';
-                    // Check if doing code review
                     if (e.task && e.task.includes && !e.task.includes('Idle')) {{
                         extraClass = 'status-working';
                     }}
