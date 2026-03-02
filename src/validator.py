@@ -18,11 +18,6 @@ class SprintValidator:
 
     Performs pre-flight checks to ensure the sprint can be simulated
     successfully, catching configuration errors early with clear messages.
-
-    Example:
-        >>> validator = SprintValidator()
-        >>> validator.validate(features, employees)
-        True  # or raises PlanningError
     """
 
     def validate(
@@ -32,8 +27,6 @@ class SprintValidator:
     ) -> bool:
         """
         Validate the sprint configuration.
-
-        Runs all validation checks and raises on the first error found.
 
         Args:
             features: Features to be simulated.
@@ -48,19 +41,12 @@ class SprintValidator:
         self._validate_features(features)
         self._validate_employees(employees)
         self._validate_code_review_coverage(features, employees)
+        # Note: No bug fix validation per requirements
 
         return True
 
     def _validate_features(self, features: list[Feature]) -> None:
-        """
-        Validate feature configurations.
-
-        Args:
-            features: Features to validate.
-
-        Raises:
-            PlanningError: If any feature has invalid configuration.
-        """
+        """Validate feature configurations."""
         if not features:
             raise PlanningError("No features provided for simulation")
 
@@ -72,15 +58,7 @@ class SprintValidator:
                 )
 
     def _validate_employees(self, employees: list[Employee]) -> None:
-        """
-        Validate employee configurations.
-
-        Args:
-            employees: Employees to validate.
-
-        Raises:
-            PlanningError: If any employee has invalid configuration.
-        """
+        """Validate employee configurations."""
         if not employees:
             raise PlanningError("No employees provided for simulation")
 
@@ -99,19 +77,9 @@ class SprintValidator:
         """
         Validate that all features with code review have eligible reviewers.
 
-        For each feature with a CODE_REVIEW stage, checks that at least
-        one developer exists who:
-        1. Is a Developer (can do code review)
-        2. Is NOT assigned to the feature's development
-
-        Args:
-            features: Features to validate.
-            employees: Available employees.
-
-        Raises:
-            NoReviewerAvailableError: If a feature lacks eligible reviewers.
+        For each feature with CODE_REVIEW stage, checks that at least
+        one developer exists who is NOT assigned to development.
         """
-        # Get all developers in the team
         team_developers = [e for e in employees if isinstance(e, Developer)]
 
         for feature in features:
@@ -119,7 +87,7 @@ class SprintValidator:
             if not feature.has_code_review:
                 continue
 
-            # Find developers assigned to this feature (who did development)
+            # Find developers assigned to this feature
             assigned_dev_names = {
                 e.name for e in feature.assignees if isinstance(e, Developer)
             }
@@ -147,44 +115,10 @@ class SprintValidator:
 
         These warnings indicate potential issues that don't prevent
         simulation but may indicate suboptimal planning.
-
-        Args:
-            features: Features to check.
-            employees: Team members to check.
-
-        Returns:
-            List of warning messages.
         """
         warnings = []
 
-        # Check for underutilized employees
-        for employee in employees:
-            has_work = False
-            for feature in features:
-                if employee in feature.assignees:
-                    has_work = True
-                    break
-                # Check if employee can work on any stage
-                for stage in feature.STAGE_ORDER:
-                    if stage in feature.get_remaining_efforts():
-                        if employee.can_work_stage(stage):
-                            # For code review, check eligibility
-                            if stage == FeatureStage.CODE_REVIEW:
-                                if employee.name not in feature.development_contributors:
-                                    has_work = True
-                                    break
-                            else:
-                                has_work = True
-                                break
-                if has_work:
-                    break
-
-            if not has_work:
-                warnings.append(
-                    f"Employee {employee.name} may have no eligible work"
-                )
-
-        # Check for features with only one developer (single point of failure)
+        # Check for features with only one developer
         for feature in features:
             dev_count = sum(1 for e in feature.assignees if isinstance(e, Developer))
             if feature.has_code_review and dev_count == 1:
@@ -192,5 +126,17 @@ class SprintValidator:
                     f"Feature {feature.name} has only one developer assigned; "
                     f"external reviewer will be required"
                 )
+
+        # Check for QA assignment
+        for feature in features:
+            if FeatureStage.TESTING in feature.get_remaining_efforts():
+                qa_assigned = any(
+                    e.can_work_stage(FeatureStage.TESTING)
+                    for e in feature.assignees
+                )
+                if not qa_assigned:
+                    warnings.append(
+                        f"Feature {feature.name} has testing stage but no QA assigned"
+                    )
 
         return warnings

@@ -32,12 +32,7 @@ class Tick:
     hour: int  # 1..HOURS_PER_DAY
 
     def __post_init__(self) -> None:
-        """
-        Validate tick values after initialization.
-
-        Raises:
-            ValueError: If day or hour values are out of valid range.
-        """
+        """Validate tick values after initialization."""
         if self.day < 1:
             raise ValueError(f"Day must be >= 1, got {self.day}")
         if not 1 <= self.hour <= HOURS_PER_DAY:
@@ -47,20 +42,15 @@ class Tick:
 
     @property
     def label(self) -> str:
-        """
-        Human-readable label for logging and display.
-
-        Returns:
-            Formatted string like 'Day 1 — 🕐 Hour 3'.
-        """
+        """Human-readable label for logging and display."""
         return f"Day {self.day} — 🕐 Hour {self.hour}"
 
     @property
     def total_hours(self) -> int:
-        """
-        Total number of hours elapsed since simulation start.
-
-        Returns:
-            Number of hours passed (day-1)*8 + hour.
-        """
+        """Total number of hours elapsed since simulation start."""
         return (self.day - 1) * HOURS_PER_DAY + self.hour
+
+    @property
+    def name(self) -> str:
+        """Alias for label for compatibility."""
+        return self.label

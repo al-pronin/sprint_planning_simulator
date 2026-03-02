@@ -10,14 +10,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.config import HOURS_PER_DAY
+from src.exceptions import PlanningError
+from src.feature import FeatureStage
 from src.history import SprintHistory
+from src.timebox import Tick
 from src.validator import SprintValidator
 
 if TYPE_CHECKING:
     from src.employee import Employee
     from src.feature import Feature
     from src.strategy import AssignmentStrategy
-    from src.timebox import Tick
 
 
 class SprintSimulator:
@@ -30,23 +32,15 @@ class SprintSimulator:
 
     Time granularity:
         - 1 tick = 1 working hour
-        - 8 hours per working day (configurable via HOURS_PER_DAY)
+        - 8 hours per working day (configurable)
 
     Responsibilities:
         - Validate sprint configuration before running
         - Iterate through simulation time
         - Assign work to employees via strategy
-        - Advance feature lifecycle stages
+        - Track contributors for each stage
+        - Handle bug fix workflow
         - Record complete simulation history
-
-    Example:
-        >>> simulator = SprintSimulator(
-        ...     employees=[dev1, dev2, qa],
-        ...     features=[feature1, feature2],
-        ...     assignment_strategy=SimpleAssignmentStrategy(),
-        ... )
-        >>> simulator.run(max_days=10)
-        >>> simulator.history.history  # Access recorded snapshots
     """
 
     def __init__(
@@ -54,6 +48,7 @@ class SprintSimulator:
         employees: list[Employee],
         features: list[Feature],
         assignment_strategy: AssignmentStrategy,
+        *,
         validate: bool = True,
     ) -> None:
         """
@@ -69,17 +64,13 @@ class SprintSimulator:
             PlanningError: If validation fails and validate=True.
         """
         self.employees = employees
-        self.features = features.copy()  # Defensive copy
+        self.features = features.copy()
         self.assignment_strategy = assignment_strategy
         self.history = SprintHistory()
         self._validator = SprintValidator()
 
         if validate:
             self._validator.validate(features, employees)
-
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
 
     def run(self, max_days: int) -> None:
         """
@@ -92,37 +83,32 @@ class SprintSimulator:
         Args:
             max_days: Maximum number of working days to simulate.
         """
-        print("🚀 Sprint simulation started\n")
-        print(f"📋 Configuration:")
-        print(f"   - Team size: {len(self.employees)}")
-        print(f"   - Features: {len(self.features)}")
-        print(f"   - Max days: {max_days}")
+        print("🚀 Sprint simulation started")
+        print(f"   Team: {len(self.employees)} employees")
+        print(f"   Features: {len(self.features)}")
+        print(f"   Max days: {max_days}")
         print()
 
-        # Print warnings
+        # Show validation warnings
         warnings = self._validator.get_validation_warnings(
             self.features, self.employees
         )
         for warning in warnings:
-            print(f"⚠️ Warning: {warning}")
+            print(f"⚠️ {warning}")
 
         for day in range(1, max_days + 1):
             for hour in range(1, HOURS_PER_DAY + 1):
-                from src.timebox import Tick
                 tick = Tick(day=day, hour=hour)
-                print(f"\n🕒 {tick.label}")
+                print(f"\n🕐 {tick.label}")
                 self._process_tick(tick)
 
                 if not self.features:
-                    print("\n🏁 All features completed early!")
+                    print("\n🏁 All features completed!")
+                    self._print_summary()
                     return
 
         print("\n⏹ Max days reached. Simulation stopped.")
         self._print_summary()
-
-    # ------------------------------------------------------------------ #
-    # Internal mechanics
-    # ------------------------------------------------------------------ #
 
     def _process_tick(self, tick: Tick) -> None:
         """
@@ -133,11 +119,8 @@ class SprintSimulator:
         2. Assign and perform work for each employee
         3. Record history snapshot
         4. Try to advance features to next stages
-
-        Args:
-            tick: Current time point.
         """
-        # Reset state for this tick
+        # Reset per-tick state
         for employee in self.employees:
             employee.reset_tick()
 
@@ -149,22 +132,40 @@ class SprintSimulator:
             )
 
             if feature:
-                employee.work(feature)
+                self._perform_work(employee, feature)
             else:
                 employee.idle()
 
-        # Record history for this tick
+        # Record history
         self.history.record(tick, self.features, self.employees)
 
-        # Try advancing features after work is done
+        # Try advancing features
         self._advance_features()
 
-    def _advance_features(self) -> None:
+    def _perform_work(self, employee: Employee, feature: Feature) -> None:
         """
-        Advance features to next stages if current stage is complete.
+        Perform work and register contributors for the current stage.
 
-        Removes fully completed features from the active list.
+        Tracks contributors for:
+        - DEVELOPMENT: Developers who write code
+        - TESTING: QA engineers who test
+        - BUG_FIX: Both developers and QA who contributed earlier
+
+        Args:
+            employee: Employee doing the work.
+            feature: Feature being worked on.
         """
+        # Register contributors based on stage
+        if feature.current_stage == FeatureStage.DEVELOPMENT:
+            feature.register_development_contributor(employee)
+        elif feature.current_stage == FeatureStage.TESTING:
+            feature.register_testing_contributor(employee)
+
+        # Perform the work
+        employee.work(feature)
+
+    def _advance_features(self) -> None:
+        """Advance features to next stages if current stage is complete."""
         completed: list[Feature] = []
 
         for feature in self.features:
@@ -175,14 +176,18 @@ class SprintSimulator:
             self.features.remove(feature)
 
     def _print_summary(self) -> None:
-        """
-        Print a summary of the simulation results.
-        """
-        print("\n📊 Simulation Summary:")
-        print(f"   - Total ticks recorded: {len(self.history.history)}")
+        """Print a summary of the simulation results."""
+        print("\n📊 Simulation Summary")
+        print(f"   Ticks recorded: {len(self.history.history)}")
 
-        # Count completed vs incomplete features
-        last_snapshot = self.history.history[-1] if self.history.history else None
-        if last_snapshot:
-            completed = sum(1 for f in last_snapshot.features if f.is_done)
-            print(f"   - Features completed: {completed}/{len(last_snapshot.features)}")
+        if self.history.history:
+            last_snap = self.history.history[-1]
+            done = sum(1 for f in last_snap.features if f.is_done)
+            total = len(last_snap.features)
+            print(f"   Features completed: {done}/{total}")
+
+            # Bug statistics
+            features_with_bugs = sum(
+                1 for f in last_snap.features if f.has_bugs is True
+            )
+            print(f"   Features with bugs: {features_with_bugs}")

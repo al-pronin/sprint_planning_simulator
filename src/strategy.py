@@ -19,9 +19,6 @@ class AssignmentStrategy(Protocol):
 
     Implementations determine how employees are matched to features
     when there are multiple options available.
-
-    A strategy receives the employee and available features, then
-    returns the most appropriate feature for that employee to work on.
     """
 
     def choose_feature(
@@ -46,14 +43,8 @@ class SimpleAssignmentStrategy:
     """
     Greedy assignment strategy using first-match logic.
 
-    This strategy assigns employees to the first feature they can work on,
-    in the order features are provided. It has no prioritization logic.
-
-    This is the simplest strategy suitable for basic simulations.
-
-    Example:
-        >>> strategy = SimpleAssignmentStrategy()
-        >>> feature = strategy.choose_feature(developer, features)
+    Assigns employees to the first feature they can work on,
+    in the order features are provided.
     """
 
     def choose_feature(
@@ -63,9 +54,6 @@ class SimpleAssignmentStrategy:
     ) -> Feature | None:
         """
         Choose the first feature the employee can work on.
-
-        Iterates through features in order and returns the first one
-        where can_be_worked_by returns True.
 
         Args:
             employee: The employee needing assignment.
@@ -77,7 +65,6 @@ class SimpleAssignmentStrategy:
         for feature in features:
             if feature.can_be_worked_by(employee):
                 return feature
-
         return None
 
 
@@ -85,12 +72,9 @@ class PriorityBasedAssignmentStrategy:
     """
     Priority-based assignment strategy.
 
-    This strategy considers feature priorities and remaining work
-    when making assignments. Features closer to completion or with
-    higher priority are preferred.
-
-    Attributes:
-        prioritize_completion: Whether to favor features closer to done.
+    Considers feature priorities and remaining work when making
+    assignments. Features closer to completion or with higher
+    priority are preferred.
     """
 
     def __init__(self, prioritize_completion: bool = True) -> None:
@@ -132,3 +116,42 @@ class PriorityBasedAssignmentStrategy:
             )
 
         return eligible_features[0]
+
+
+class BugFixPriorityStrategy:
+    """
+    Strategy that prioritizes bug fixes over other work.
+
+    Bug fixes are urgent - they block feature completion and
+    involve both developers and QA who worked on the feature.
+    """
+
+    def choose_feature(
+        self,
+        employee: Employee,
+        features: list[Feature],
+    ) -> Feature | None:
+        """
+        Choose feature with bug fix priority.
+
+        Args:
+            employee: The employee needing assignment.
+            features: List of available features.
+
+        Returns:
+            Feature needing bug fix first, then others.
+        """
+        from src.feature import FeatureStage
+
+        # First, check for bug fix work
+        for feature in features:
+            if feature.current_stage == FeatureStage.BUG_FIX:
+                if feature.can_be_worked_by(employee):
+                    return feature
+
+        # Then, other work
+        for feature in features:
+            if feature.can_be_worked_by(employee):
+                return feature
+
+        return None

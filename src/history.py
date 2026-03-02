@@ -24,15 +24,15 @@ class FeatureSnapshot:
     """
     Immutable snapshot of a Feature's state at a specific point in time.
 
-    Used for historical recording and reporting.
-
     Attributes:
         name: Feature identifier.
-        current_stage: The stage the feature was in at snapshot time.
+        current_stage: Stage at snapshot time.
         remaining_efforts: Remaining effort for each stage.
         total_capacity: Original total estimated effort.
         is_done: Whether the feature was complete.
-        development_contributors: Names of developers who worked on development.
+        development_contributors: Developers who worked on development.
+        testing_contributors: QA engineers who worked on testing.
+        has_bugs: Whether bugs were found (None if not determined yet).
     """
 
     name: str
@@ -41,18 +41,12 @@ class FeatureSnapshot:
     total_capacity: float
     is_done: bool
     development_contributors: frozenset[str]
+    testing_contributors: frozenset[str]
+    has_bugs: bool | None
 
     @classmethod
     def from_feature(cls, feature: Feature) -> FeatureSnapshot:
-        """
-        Create a snapshot from a Feature instance.
-
-        Args:
-            feature: Feature to snapshot.
-
-        Returns:
-            New FeatureSnapshot with current feature state.
-        """
+        """Create a snapshot from a Feature instance."""
         return cls(
             name=feature.name,
             current_stage=feature.current_stage,
@@ -60,6 +54,8 @@ class FeatureSnapshot:
             total_capacity=feature.total_capacity,
             is_done=feature.is_done,
             development_contributors=feature.development_contributors,
+            testing_contributors=feature.testing_contributors,
+            has_bugs=feature.has_bugs,
         )
 
 
@@ -67,8 +63,6 @@ class FeatureSnapshot:
 class EmployeeSnapshot:
     """
     Immutable snapshot of an Employee's state at a specific point in time.
-
-    Used for historical recording and reporting.
 
     Attributes:
         name: Employee identifier.
@@ -82,15 +76,7 @@ class EmployeeSnapshot:
 
     @classmethod
     def from_employee(cls, employee: Employee) -> EmployeeSnapshot:
-        """
-        Create a snapshot from an Employee instance.
-
-        Args:
-            employee: Employee to snapshot.
-
-        Returns:
-            New EmployeeSnapshot with current employee state.
-        """
+        """Create a snapshot from an Employee instance."""
         return cls(
             name=employee.name,
             has_worked=employee.has_worked,
@@ -103,12 +89,10 @@ class TickSnapshot:
     """
     Complete immutable snapshot of simulation state at a specific tick.
 
-    Contains the state of all features and employees at a moment in time.
-
     Attributes:
-        tick: The time point this snapshot represents.
-        features: List of feature snapshots.
-        employees: List of employee snapshots.
+        tick: Time point this snapshot represents.
+        features: Feature snapshots at this tick.
+        employees: Employee snapshots at this tick.
     """
 
     tick: Tick
@@ -122,12 +106,6 @@ class SprintHistory:
 
     Maintains an ordered list of tick snapshots for analysis and reporting.
     Tracks completed features to show them in reports even after removal.
-
-    Example:
-        >>> history = SprintHistory()
-        >>> history.record(tick, features, employees)
-        >>> len(history.history)
-        1
     """
 
     def __init__(self) -> None:
@@ -144,15 +122,8 @@ class SprintHistory:
         """
         Record the current state of the simulation.
 
-        Creates snapshots of all features (including previously completed ones)
-        and employees and appends them to the history.
-
-        Args:
-            tick: Current simulation time point.
-            features: List of active features to snapshot.
-            employees: List of employees to snapshot.
+        Includes active features and completed features from previous ticks.
         """
-        # Build feature list: active + completed
         all_feature_snapshots: list[FeatureSnapshot] = []
 
         # Add active features
@@ -160,11 +131,10 @@ class SprintHistory:
             snapshot = FeatureSnapshot.from_feature(feature)
             all_feature_snapshots.append(snapshot)
 
-            # Track if this feature just completed
             if feature.is_done:
                 self._completed_features[feature.name] = snapshot
 
-        # Add previously completed features that are no longer active
+        # Add previously completed features
         active_names = {f.name for f in features}
         for name, completed_snapshot in self._completed_features.items():
             if name not in active_names:
@@ -182,24 +152,11 @@ class SprintHistory:
 
     @property
     def history(self) -> list[TickSnapshot]:
-        """
-        Get the recorded history.
-
-        Returns:
-            List of all recorded tick snapshots in chronological order.
-        """
+        """Get the recorded history."""
         return self._history
 
     def get_feature_timeline(self, feature_name: str) -> list[FeatureSnapshot]:
-        """
-        Get the timeline of a specific feature across all ticks.
-
-        Args:
-            feature_name: Name of the feature to track.
-
-        Returns:
-            List of feature snapshots for the named feature.
-        """
+        """Get the timeline of a specific feature across all ticks."""
         result = []
         for tick_snapshot in self._history:
             for feature_snapshot in tick_snapshot.features:
@@ -209,15 +166,7 @@ class SprintHistory:
         return result
 
     def get_employee_timeline(self, employee_name: str) -> list[EmployeeSnapshot]:
-        """
-        Get the timeline of a specific employee across all ticks.
-
-        Args:
-            employee_name: Name of the employee to track.
-
-        Returns:
-            List of employee snapshots for the named employee.
-        """
+        """Get the timeline of a specific employee across all ticks."""
         result = []
         for tick_snapshot in self._history:
             for employee_snapshot in tick_snapshot.employees:
